@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <title>تسجيل الدخول — المتجر</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    :root{
+      --bg1:#0a1a2f; --bg2:#122b4a; --card:#1e2d3f; --accent:#4da8da; --accent-dark:#27517d; --muted:#cbd8e3;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      min-height:100vh;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(90deg,var(--bg1),var(--bg2));
+      color:#fff;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:24px;
+    }
+    .card{
+      width:100%;
+      max-width:420px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.02));
+      border-radius:12px;
+      padding:26px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      border:1px solid rgba(255,255,255,0.04);
+    }
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      margin-bottom:14px;
+    }
+    .logo{
+      font-size:34px;
+      background:var(--accent);
+      width:56px;height:56px;border-radius:10px;
+      display:flex;align-items:center;justify-content:center;color:#fff;box-shadow:0 6px 16px rgba(0,0,0,0.4);
+    }
+    h1{margin:0;font-size:20px}
+    p.sub{margin:6px 0 18px;color:var(--muted);font-size:14px}
+
+    label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+    input[type="email"], input[type="password"]{
+      width:100%;
+      padding:12px 14px;
+      border-radius:10px;
+      border:1px solid rgba(255,255,255,0.04);
+      background: rgba(255,255,255,0.02);
+      color:#fff;
+      font-size:15px;
+      outline:none;
+      margin-bottom:12px;
+    }
+    input::placeholder{color:rgba(255,255,255,0.45)}
+
+    .row{display:flex;gap:10px;align-items:center}
+    .btn{
+      display:inline-block;
+      padding:10px 14px;
+      border-radius:10px;
+      border:none;
+      cursor:pointer;
+      font-weight:700;
+      background:var(--accent);
+      color:#fff;
+      transition:background .12s ease, transform .08s ease;
+    }
+    .btn.secondary{
+      background: rgba(255,255,255,0.06);
+      color:var(--muted);
+      border:1px solid rgba(255,255,255,0.03);
+      font-weight:600;
+    }
+    .btn:hover{transform:translateY(-2px)}
+    .links{margin-top:12px;text-align:center;color:var(--muted);font-size:14px}
+    .links a{color:var(--accent);text-decoration:none;font-weight:700}
+    .msg{margin-top:12px;padding:10px;border-radius:8px;display:none}
+
+    .msg.error{background:linear-gradient(90deg,#e74c3c,#c0392b); color:#fff}
+    .msg.info{background:linear-gradient(90deg,#27ae60,#1e8449); color:#fff}
+
+    @media (max-width:480px){
+      .card{padding:18px}
+    }
+  </style>
+</head>
+<body>
+  <div class="card" role="main" aria-labelledby="signin-title">
+    <div class="brand">
+      <div class="logo">🔐</div>
+      <div>
+        <h1 id="signin-title">تسجيل الدخول</h1>
+        <p class="sub">أدخل حسابك للدخول إلى المتجر</p>
+      </div>
+    </div>
+
+    <label for="email">البريد الإلكتروني</label>
+    <input id="email" type="email" placeholder="example@email.com" autocomplete="email" />
+
+    <label for="password">كلمة المرور</label>
+    <input id="password" type="password" placeholder="••••••••" autocomplete="current-password" />
+
+    <div class="row" style="margin-top:6px;">
+      <button class="btn" id="loginBtn">دخول</button>
+      <button class="btn secondary" id="guestBtn">دخول كزائر</button>
+    </div>
+
+    <div id="message" class="msg" role="status" aria-live="polite"></div>
+
+    <div class="links">
+      <div>ما عندكش حساب؟ <a href="register.html">سجّل الآن</a></div>
+      <div style="margin-top:6px"><a href="#" id="forgot">نسيت كلمة المرور؟</a></div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import { getDatabase, ref, get, set } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+    // --- ضع الـ firebaseConfig الخاص بك هنا (الذي أعطيته لي) ---
+    const firebaseConfig = {
+      apiKey: "AIzaSyDm2WxkPe15845RS5RnTNZnRnlm1SMbSAM",
+      authDomain: "appjx-d8c22.firebaseapp.com",
+      databaseURL: "https://appjx-d8c22-default-rtdb.firebaseio.com",
+      projectId: "appjx-d8c22",
+      storageBucket: "appjx-d8c22.firebasestorage.app",
+      messagingSenderId: "182238643819",
+      appId: "1:182238643819:web:da345308cde59a9b8ed32e",
+      measurementId: "G-MMZZ5Y7JK2"
+    };
+
+    // initialize
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getDatabase(app);
+
+    // DOM
+    const emailEl = document.getElementById('email');
+    const passEl = document.getElementById('password');
+    const loginBtn = document.getElementById('loginBtn');
+    const guestBtn = document.getElementById('guestBtn');
+    const msgEl = document.getElementById('message');
+    const forgotEl = document.getElementById('forgot');
+
+    // helper
+    function showMsg(text, type='error', ms=3000){
+      msgEl.textContent = text;
+      msgEl.className = 'msg ' + (type==='error' ? 'error' : 'info');
+      msgEl.style.display = 'block';
+      setTimeout(()=>{ msgEl.style.display = 'none'; }, ms);
+    }
+
+    // login flow
+    loginBtn.addEventListener('click', async () => {
+      const email = emailEl.value.trim();
+      const password = passEl.value;
+      if (!email || !password) { showMsg('يرجى إدخال البريد وكلمة المرور', 'error'); return; }
+      loginBtn.disabled = true;
+      loginBtn.textContent = 'جاري الدخول...';
+      try {
+        const cred = await signInWithEmailAndPassword(auth, email, password);
+        const user = cred.user;
+        // ensure user profile in DB
+        const userRef = ref(db, 'users/' + user.uid);
+        const snap = await get(userRef);
+        let role = 'buyer';
+        let displayName = user.displayName || (user.email ? user.email.split('@')[0] : 'مستخدم');
+        if (!snap.exists()) {
+          // create default profile
+          await set(userRef, {
+            email: user.email || null,
+            displayName,
+            role,
+            createdAt: new Date().toISOString()
+          });
+        } else {
+          const data = snap.val();
+          role = data.role || 'buyer';
+          displayName = data.displayName || displayName;
+        }
+        // store lightweight local copy (fallback for older pages)
+        localStorage.setItem('loggedInUser', JSON.stringify({ uid: user.uid, email: user.email, displayName, role }));
+        // redirect based on role
+        if (role === 'seller') {
+          window.location.href = 'seller.html';
+        } else {
+          window.location.href = 'buyer.html';
+        }
+      } catch (err) {
+        console.error(err);
+        showMsg(err.message || 'خطأ في تسجيل الدخول', 'error', 4000);
+      } finally {
+        loginBtn.disabled = false;
+        loginBtn.textContent = 'دخول';
+      }
+    });
+
+    // guest fallback (localStorage-only user)
+    guestBtn.addEventListener('click', () => {
+      const guest = { uid: 'local-guest-'+Date.now(), email: 'guest@guest', displayName: 'زائر', role: 'buyer' };
+      localStorage.setItem('loggedInUser', JSON.stringify(guest));
+      window.location.href = 'buyer.html';
+    });
+
+    // forgot password
+    forgotEl.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const email = prompt('أدخل بريدك لاستعادة كلمة المرور:');
+      if (!email) return;
+      try {
+        await sendPasswordResetEmail(auth, email);
+        alert('أرسلنا رابط استعادة كلمة المرور إلى البريد إذا كان موجوداً');
+      } catch (err) {
+        alert('خطأ: ' + (err.message || err));
+      }
+    });
+
+    // allow pressing Enter to submit
+    passEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') loginBtn.click(); });
+    emailEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') loginBtn.click(); });
+  </script>
+</body>
+</html>
