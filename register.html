@@ -73,17 +73,28 @@
     <div class="logo">📝</div>
     <h1>إنشاء حساب جديد</h1>
 
+    <input type="text" id="name" placeholder="الاسم" />
     <input type="email" id="email" placeholder="البريد الإلكتروني" />
     <input type="password" id="password" placeholder="كلمة المرور" />
     <input type="password" id="confirmPassword" placeholder="تأكيد كلمة المرور" />
     <button id="registerBtn">تسجيل</button>
+    <button id="googleBtn" style="background-color:#db4437; margin-top:10px;">
+      الدخول باستخدام Google
+    </button>
+
 
     <p>لديك حساب؟ <a href="login.html">سجّل الدخول</a></p>
   </div>
 
+  
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import { 
+      getAuth, 
+      createUserWithEmailAndPassword, 
+      GoogleAuthProvider, 
+      signInWithPopup 
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
     import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
     const firebaseConfig = {
@@ -100,17 +111,19 @@
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getDatabase(app);
+    const provider = new GoogleAuthProvider();
 
+    // Register with email/password
     document.getElementById("registerBtn").addEventListener("click", () => {
+      const name = document.getElementById("name").value.trim();
       const email = document.getElementById("email").value.trim();
       const password = document.getElementById("password").value.trim();
       const confirmPassword = document.getElementById("confirmPassword").value.trim();
 
-      if (!email || !password || !confirmPassword) {
+      if (!name || !email || !password || !confirmPassword) {
         alert("يرجى ملء جميع الحقول");
         return;
       }
-
       if (password !== confirmPassword) {
         alert("كلمتا المرور غير متطابقتين");
         return;
@@ -120,7 +133,8 @@
         .then((userCredential) => {
           const user = userCredential.user;
           return set(ref(db, "users/" + user.uid), {
-            email: email,
+            name,
+            email,
             createdAt: new Date().toISOString()
           });
         })
@@ -132,5 +146,28 @@
           alert("خطأ: " + error.message);
         });
     });
+
+    // Sign in with Google
+    document.getElementById("googleBtn").addEventListener("click", () => {
+      signInWithPopup(auth, provider)
+        .then((result) => {
+          const user = result.user;
+          return set(ref(db, "users/" + user.uid), {
+            name: user.displayName,
+            email: user.email,
+            photoURL: user.photoURL || "",
+            createdAt: new Date().toISOString()
+          });
+        })
+        .then(() => {
+          alert("تم تسجيل الدخول باستخدام Google بنجاح");
+          window.location.href = "index.html";
+        })
+        .catch((error) => {
+          alert("خطأ: " + error.message);
+        });
+    });
   </script>
+
 </body>
+
