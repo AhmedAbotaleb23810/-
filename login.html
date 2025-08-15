@@ -110,6 +110,12 @@
       <button class="btn secondary" id="guestBtn">دخول كزائر</button>
     </div>
 
+    <!-- زر جوجل بعرض الكارت -->
+    <button class="btn secondary" id="googleBtn" style="width:100%;margin-top:10px;display:flex;align-items:center;justify-content:center;gap:8px">
+      <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="" style="width:20px;height:20px">
+      دخول بواسطة جوجل
+    </button>
+
     <div id="message" class="msg" role="status" aria-live="polite"></div>
 
     <div class="links">
@@ -120,10 +126,9 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
     import { getDatabase, ref, get, set } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
-    // --- ضع الـ firebaseConfig الخاص بك هنا (الذي أعطيته لي) ---
     const firebaseConfig = {
       apiKey: "AIzaSyDm2WxkPe15845RS5RnTNZnRnlm1SMbSAM",
       authDomain: "appjx-d8c22.firebaseapp.com",
@@ -135,20 +140,18 @@
       measurementId: "G-MMZZ5Y7JK2"
     };
 
-    // initialize
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getDatabase(app);
 
-    // DOM
     const emailEl = document.getElementById('email');
     const passEl = document.getElementById('password');
     const loginBtn = document.getElementById('loginBtn');
     const guestBtn = document.getElementById('guestBtn');
+    const googleBtn = document.getElementById('googleBtn');
     const msgEl = document.getElementById('message');
     const forgotEl = document.getElementById('forgot');
 
-    // helper
     function showMsg(text, type='error', ms=3000){
       msgEl.textContent = text;
       msgEl.className = 'msg ' + (type==='error' ? 'error' : 'info');
@@ -156,7 +159,6 @@
       setTimeout(()=>{ msgEl.style.display = 'none'; }, ms);
     }
 
-    // login flow
     loginBtn.addEventListener('click', async () => {
       const email = emailEl.value.trim();
       const password = passEl.value;
@@ -166,13 +168,11 @@
       try {
         const cred = await signInWithEmailAndPassword(auth, email, password);
         const user = cred.user;
-        // ensure user profile in DB
         const userRef = ref(db, 'users/' + user.uid);
         const snap = await get(userRef);
         let role = 'buyer';
         let displayName = user.displayName || (user.email ? user.email.split('@')[0] : 'مستخدم');
         if (!snap.exists()) {
-          // create default profile
           await set(userRef, {
             email: user.email || null,
             displayName,
@@ -184,9 +184,7 @@
           role = data.role || 'buyer';
           displayName = data.displayName || displayName;
         }
-        // store lightweight local copy (fallback for older pages)
         localStorage.setItem('loggedInUser', JSON.stringify({ uid: user.uid, email: user.email, displayName, role }));
-        // redirect based on role
         if (role === 'seller') {
           window.location.href = 'seller.html';
         } else {
@@ -201,14 +199,12 @@
       }
     });
 
-    // guest fallback (localStorage-only user)
     guestBtn.addEventListener('click', () => {
       const guest = { uid: 'local-guest-'+Date.now(), email: 'guest@guest', displayName: 'زائر', role: 'buyer' };
       localStorage.setItem('loggedInUser', JSON.stringify(guest));
       window.location.href = 'buyer.html';
     });
 
-    // forgot password
     forgotEl.addEventListener('click', async (e) => {
       e.preventDefault();
       const email = prompt('أدخل بريدك لاستعادة كلمة المرور:');
@@ -221,9 +217,43 @@
       }
     });
 
-    // allow pressing Enter to submit
+    // دخول بجوجل
+    const provider = new GoogleAuthProvider();
+    googleBtn.addEventListener('click', async () => {
+      try {
+        const result = await signInWithPopup(auth, provider);
+        const user = result.user;
+        const userRef = ref(db, 'users/' + user.uid);
+        const snap = await get(userRef);
+        let role = 'buyer';
+        let displayName = user.displayName || (user.email ? user.email.split('@')[0] : 'مستخدم');
+        if (!snap.exists()) {
+          await set(userRef, {
+            email: user.email || null,
+            displayName,
+            role,
+            createdAt: new Date().toISOString()
+          });
+        } else {
+          const data = snap.val();
+          role = data.role || 'buyer';
+          displayName = data.displayName || displayName;
+        }
+        localStorage.setItem('loggedInUser', JSON.stringify({ uid: user.uid, email: user.email, displayName, role }));
+        if (role === 'seller') {
+          window.location.href = 'seller.html';
+        } else {
+          window.location.href = 'buyer.html';
+        }
+      } catch (err) {
+        console.error(err);
+        showMsg(err.message || 'تعذر تسجيل الدخول بجوجل', 'error');
+      }
+    });
+
     passEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') loginBtn.click(); });
     emailEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') loginBtn.click(); });
   </script>
 </body>
 </html>
+
