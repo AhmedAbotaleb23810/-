@@ -33,6 +33,7 @@
     .btn.secondary{background:rgba(255,255,255,.06); color:var(--muted); border:1px solid var(--border)}
     .btn.danger{background:var(--danger)}
     .btn.warn{background:var(--warn); color:#222}
+    .btn.ghost{background:transparent; border:1px dashed var(--border); color:var(--muted)}
     main{max-width:1150px; margin:26px auto; padding:0 16px 70px; width:100%}
     .toolbar{display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-bottom:16px}
     .search{display:flex; gap:8px; align-items:center; flex:1; min-width:220px}
@@ -70,6 +71,14 @@
     .empty{padding:40px 12px; text-align:center; color:var(--muted); background:rgba(255,255,255,.02); border:1px solid var(--border); border-radius:12px}
     .sum{font-weight:800}
     .badge{background:rgba(255,255,255,.06); padding:6px 8px; border-radius:8px; border:1px solid var(--border)}
+    /* Orders table */
+    table{width:100%; border-collapse:collapse}
+    th,td{padding:10px; border-bottom:1px solid var(--border); text-align:center}
+    .status{padding:4px 8px; border-radius:999px; font-weight:700; font-size:12px; display:inline-block}
+    .s-pending{background:rgba(243,156,18,.18); border:1px solid rgba(243,156,18,.4)}
+    .s-confirmed{background:rgba(46,204,113,.18); border:1px solid rgba(46,204,113,.4)}
+    .s-completed{background:rgba(52,152,219,.18); border:1px solid rgba(52,152,219,.4)}
+    .s-cancelled{background:rgba(231,76,60,.18); border:1px solid rgba(231,76,60,.4)}
   </style>
 </head>
 <body>
@@ -87,7 +96,7 @@
   </header>
 
   <main>
-    <!-- شريط أدوات -->
+    <!-- شريط أدوات المنتجات -->
     <div class="toolbar">
       <div class="search">
         <input id="searchInput" placeholder="🔍 ابحث باسم المنتج..." />
@@ -105,7 +114,7 @@
       </div>
     </div>
 
-    <!-- إضافة/تعديل -->
+    <!-- إضافة/تعديل منتج -->
     <div class="panel">
       <h2>➕ إضافة/تعديل منتج</h2>
       <div class="grid2" style="margin-bottom:10px">
@@ -124,15 +133,55 @@
       </div>
     </div>
 
-    <!-- القائمة -->
+    <!-- بطاقات المنتجات -->
     <div id="cards" class="cards"></div>
     <div id="emptyState" class="empty" style="display:none">لا توجد منتجات حالياً.</div>
+
+    <!-- الطلبات (أسفل) -->
+    <div class="panel" style="margin-top:24px">
+      <h2>📦 الطلبات الواردة</h2>
+      <div class="toolbar" style="margin-top:6px">
+        <div class="search" style="flex:unset">
+          <select id="orderFilter">
+            <option value="all">الكل</option>
+            <option value="pending">قيد المعالجة</option>
+            <option value="confirmed">مؤكد</option>
+            <option value="completed">مكتمل</option>
+            <option value="cancelled">ملغي</option>
+          </select>
+        </div>
+        <span class="badge">عدد الطلبات: <b id="ordersCount">0</b></span>
+      </div>
+
+      <div style="overflow:auto">
+        <table id="ordersTable">
+          <thead>
+            <tr>
+              <th>العميل</th>
+              <th>الإجمالي</th>
+              <th>طريقة الدفع</th>
+              <th>الحالة</th>
+              <th>التاريخ</th>
+              <th>العناصر</th>
+              <th>العنوان</th>
+              <th>إجراءات</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div id="ordersEmpty" class="empty" style="display:none">لا توجد طلبات بعد.</div>
+    </div>
+
   </main>
 
   <!-- Firebase (modular) -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getDatabase, ref, onValue, push, set, update, remove, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+    import {
+      getDatabase, ref, onValue, push, set, update, remove, runTransaction
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
     import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
     // ===== إعدادات Firebase =====
@@ -144,270 +193,216 @@
       storageBucket: "appjx-d8c22.firebasestorage.app",
       messagingSenderId: "182238643819",
       appId: "1:182238643819:web:da345308cde59a9b8ed32e",
-      measurementId: "G-MMZZ5Y7JK2"
+            measurementId: "G-MMZZ5Y7JK2"
     };
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
     const auth = getAuth(app);
 
-    // ===== السماح فقط لأدمن =====
-    const adminEmails = [
-      // ضع ايميل الأدمن/الأدمنز هنا
-      "swd63431@gmail.com"
-    ];
-
+    // ===== إعداد الأدمن =====
+    const adminEmails = ["swd63431@gmail.com"];
     function isAdmin(user){
-      if (!user) return false;
-      const email = (user.email || "").toLowerCase();
-      return adminEmails.map(e=>e.toLowerCase()).includes(email);
+      return user && adminEmails.includes(user.email.toLowerCase());
     }
 
-    // ===== عناصر DOM =====
+    // عناصر DOM
     const displayNameEl = document.getElementById('displayName');
     const logoutBtn = document.getElementById('logoutBtn');
     const gotoShop = document.getElementById('gotoShop');
 
     const cardsEl = document.getElementById('cards');
     const emptyState = document.getElementById('emptyState');
-
     const searchInput = document.getElementById('searchInput');
     const sortBy = document.getElementById('sortBy');
     const clearSearch = document.getElementById('clearSearch');
-
     const pName = document.getElementById('pName');
     const pPrice = document.getElementById('pPrice');
     const pQty = document.getElementById('pQty');
     const pDesc = document.getElementById('pDesc');
-
     const addBtn = document.getElementById('addBtn');
     const updateBtn = document.getElementById('updateBtn');
     const resetBtn = document.getElementById('resetBtn');
-
     const prodCount = document.getElementById('prodCount');
     const qtySum = document.getElementById('qtySum');
     const valSum = document.getElementById('valSum');
-
     const alertBox = document.getElementById('alertBox');
 
-    // حالة
-    let currentUser = null;
-    let products = {}; // {id: {name, price, quantity, desc}}
-    let editId = null;
+    const ordersTableBody = document.querySelector('#ordersTable tbody');
+    const ordersEmpty = document.getElementById('ordersEmpty');
+    const ordersCount = document.getElementById('ordersCount');
+    const orderFilter = document.getElementById('orderFilter');
 
-    // ===== تحقق تسجيل الدخول =====
+    let currentUser = null;
+    let products = {};
+    let editId = null;
+    let orders = {};
+
+    // تحقق من تسجيل الدخول
     onAuthStateChanged(auth, user => {
-      if (!user) {
-        window.location.href = "login.html";
-        return;
-      }
-      if (!isAdmin(user)) {
-        // لو مش أدمن، دخّله على صفحة المشتري
-        window.location.href = "buyer.html";
-        return;
-      }
+      if (!user) return window.location.href = "login.html";
+      if (!isAdmin(user)) return window.location.href = "buyer.html";
       currentUser = user;
-      displayNameEl.textContent = user.displayName || user.email || 'أدمن';
+      displayNameEl.textContent = user.displayName || user.email;
       listenProducts();
+      listenOrders();
     });
 
-    // ===== الاستماع للمنتجات =====
+    // المنتجات
     function listenProducts(){
-      const productsRef = ref(db, 'products');
-      onValue(productsRef, snap => {
+      onValue(ref(db, 'products'), snap => {
         products = snap.val() || {};
-        render();
+        renderProducts();
         updateStats();
-      }, err => {
-        showAlert('خطأ في الاتصال بقاعدة البيانات', true);
       });
     }
 
-    // ===== عرض البطاقات =====
-    function render(){
+    function renderProducts(){
       cardsEl.innerHTML = '';
       const q = searchInput.value.trim().toLowerCase();
-
-      let list = Object.entries(products); // [id, obj]
-
-      if (q) list = list.filter(([id,p]) => (p?.name||'').toLowerCase().includes(q));
-
-      // sort
-      const key = sortBy.value;
+      let list = Object.entries(products);
+      if (q) list = list.filter(([id,p]) => (p.name||'').toLowerCase().includes(q));
       list.sort((a,b)=>{
-        const A = a[1] || {}, B = b[1] || {};
-        if (key === 'name') return (A.name||'').localeCompare(B.name||'');
-        if (key === 'price') return Number(A.price||0) - Number(B.price||0);
-        if (key === 'quantity') return Number(A.quantity||0) - Number(B.quantity||0);
+        if (sortBy.value==='name') return a[1].name.localeCompare(b[1].name);
+        if (sortBy.value==='price') return a[1].price - b[1].price;
+        if (sortBy.value==='quantity') return a[1].quantity - b[1].quantity;
         return 0;
       });
-
-      if (list.length === 0){
-        emptyState.style.display = 'block';
-        return;
-      } else emptyState.style.display = 'none';
-
-      list.forEach(([id, p])=>{
-        const card = document.createElement('div');
-        card.className = 'card';
-        const price = Number(p.price||0).toFixed(2);
-        const qty = Number(p.quantity||0);
-        const desc = p.desc ? escapeHtml(p.desc) : '';
-
-        card.innerHTML = `
+      if (!list.length) { emptyState.style.display='block'; return; }
+      emptyState.style.display='none';
+      list.forEach(([id,p])=>{
+        const card=document.createElement('div');
+        card.className='card';
+        card.innerHTML=`
+          <div class="row"><div class="title">${p.name}</div><div class="chip">${p.price} ريال</div></div>
+          <div class="muted">${p.desc||''}</div>
           <div class="row">
-            <div class="title">${escapeHtml(p.name||'منتج')}</div>
-            <div class="chip">${price} ريال</div>
-          </div>
-          <div class="muted">${desc}</div>
-          <div class="row">
-            <div class="muted">الكمية: <b>${qty}</b></div>
+            <div class="muted">الكمية: <b>${p.quantity}</b></div>
             <div class="actions">
               <button class="btn secondary" data-edit="${id}">✏️ تعديل</button>
               <button class="btn danger" data-del="${id}">🗑️ حذف</button>
-              <button class="btn warn" data-addone="${id}">➕ +1</button>
-              <button class="btn warn" data-subone="${id}" ${qty===0?'disabled':''}>➖ -1</button>
+              <button class="btn warn" data-add="${id}">➕ +1</button>
+              <button class="btn warn" data-sub="${id}" ${p.quantity===0?'disabled':''}>➖ -1</button>
             </div>
-          </div>
-        `;
+          </div>`;
         cardsEl.appendChild(card);
       });
-
-      // events
-      cardsEl.querySelectorAll('[data-edit]').forEach(btn=>{
-        btn.addEventListener('click', ()=> loadIntoForm(btn.getAttribute('data-edit')));
-      });
-      cardsEl.querySelectorAll('[data-del]').forEach(btn=>{
-        btn.addEventListener('click', ()=> deleteProduct(btn.getAttribute('data-del')));
-      });
-      cardsEl.querySelectorAll('[data-addone]').forEach(btn=>{
-        btn.addEventListener('click', ()=> incDec(btn.getAttribute('data-addone'), +1));
-      });
-      cardsEl.querySelectorAll('[data-subone]').forEach(btn=>{
-        btn.addEventListener('click', ()=> incDec(btn.getAttribute('data-subone'), -1));
-      });
+      cardsEl.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>loadForm(b.dataset.edit));
+      cardsEl.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>deleteProduct(b.dataset.del));
+      cardsEl.querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>changeQty(b.dataset.add,1));
+      cardsEl.querySelectorAll('[data-sub]').forEach(b=>b.onclick=()=>changeQty(b.dataset.sub,-1));
     }
 
     function updateStats(){
-      const vals = Object.values(products);
-      const count = vals.length;
-      const qSum = vals.reduce((s,p)=> s + Number(p.quantity||0), 0);
-      const vSum = vals.reduce((s,p)=> s + Number(p.quantity||0)*Number(p.price||0), 0);
-      prodCount.textContent = count;
-      qtySum.textContent = qSum;
-      valSum.textContent = vSum.toFixed(2);
+      const vals=Object.values(products);
+      prodCount.textContent=vals.length;
+      qtySum.textContent=vals.reduce((s,p)=>s+(p.quantity||0),0);
+      valSum.textContent=vals.reduce((s,p)=>s+(p.price||0)*(p.quantity||0),0).toFixed(2);
     }
 
-    // ===== نموذج الإضافة/التعديل =====
-    addBtn.addEventListener('click', async ()=>{
-      const {name, price, quantity, desc, err} = readForm();
-      if (err){ showAlert(err, true); return; }
-      try{
-        const id = push(ref(db, 'products')).key;
-        await set(ref(db, 'products/'+id), { name, price, quantity, desc });
-        resetForm();
-        showAlert('✅ تم إضافة المنتج بنجاح');
-      }catch(e){ showAlert('حدث خطأ أثناء الإضافة', true); console.error(e); }
-    });
+    addBtn.onclick=async()=>{
+      const d=readForm(); if(d.err) return alertMsg(d.err,true);
+      const id=push(ref(db,'products')).key;
+      await set(ref(db,'products/'+id),d);
+      resetForm(); alertMsg('تمت الإضافة');
+    };
+    updateBtn.onclick=async()=>{
+      if(!editId) return;
+      const d=readForm(); if(d.err) return alertMsg(d.err,true);
+      await update(ref(db,'products/'+editId),d);
+      resetForm(); alertMsg('تم التحديث');
+    };
+    resetBtn.onclick=resetForm;
 
-    updateBtn.addEventListener('click', async ()=>{
-      if (!editId){ showAlert('لا يوجد منتج مُحدد للتحديث', true); return; }
-      const {name, price, quantity, desc, err} = readForm();
-      if (err){ showAlert(err, true); return; }
-      try{
-        await update(ref(db, 'products/'+editId), { name, price, quantity, desc });
-        resetForm();
-        showAlert('✏️ تم تحديث المنتج');
-      }catch(e){ showAlert('حدث خطأ أثناء التحديث', true); console.error(e); }
-    });
-
-    resetBtn.addEventListener('click', resetForm);
-
-    function loadIntoForm(id){
-      const p = products[id]; if (!p) return;
-      pName.value = p.name || '';
-      pPrice.value = Number(p.price||0);
-      pQty.value = Number(p.quantity||0);
-      pDesc.value = p.desc || '';
-      editId = id;
-      updateBtn.disabled = false;
-      addBtn.disabled = true;
-      showAlert('وضع التعديل مُفعل لهذا المنتج');
-      window.scrollTo({top:0, behavior:'smooth'});
+    function loadForm(id){ const p=products[id];
+      pName.value=p.name; pPrice.value=p.price; pQty.value=p.quantity; pDesc.value=p.desc||'';
+      editId=id; addBtn.disabled=true; updateBtn.disabled=false;
     }
-
-    function resetForm(){
-      pName.value = ''; pPrice.value=''; pQty.value=''; pDesc.value='';
-      editId = null;
-      updateBtn.disabled = true;
-      addBtn.disabled = false;
-    }
-
+    function resetForm(){ pName.value=''; pPrice.value=''; pQty.value=''; pDesc.value=''; editId=null; addBtn.disabled=false; updateBtn.disabled=true; }
     function readForm(){
-      const name = pName.value.trim();
-      const price = parseFloat(pPrice.value);
-      const quantity = parseInt(pQty.value);
-      const desc = pDesc.value.trim();
-      if (!name) return {err:'يرجى إدخال اسم المنتج'};
-      if (isNaN(price) || price < 0) return {err:'يرجى إدخال سعر صحيح (>= 0)'};
-      if (isNaN(quantity) || quantity < 0) return {err:'يرجى إدخال كمية صحيحة (>= 0)'};
-      return {name, price, quantity, desc};
+      const name=pName.value.trim(), price=parseFloat(pPrice.value), quantity=parseInt(pQty.value), desc=pDesc.value.trim();
+      if(!name) return {err:'ادخل الاسم'};
+      if(isNaN(price)||price<0) return {err:'ادخل سعر صحيح'};
+      if(isNaN(quantity)||quantity<0) return {err:'ادخل كمية صحيحة'};
+      return {name,price,quantity,desc};
+    }
+    async function deleteProduct(id){ if(!confirm('حذف المنتج؟'))return; await remove(ref(db,'products/'+id)); alertMsg('تم الحذف'); }
+    async function changeQty(id,delta){
+      await runTransaction(ref(db,'products/'+id),cur=>{ if(cur){cur.quantity=Math.max(0,(cur.quantity||0)+delta);} return cur; });
     }
 
-    // حذف منتج
-    async function deleteProduct(id){
-      const p = products[id];
-      if (!p) return;
-      const ok = confirm(`هل تريد حذف "${p.name}"؟`);
-      if (!ok) return;
-      try{
-        await remove(ref(db, 'products/'+id));
-        if (editId === id) resetForm();
-        showAlert('🗑️ تم حذف المنتج');
-      }catch(e){ showAlert('تعذّر الحذف', true); console.error(e); }
+    searchInput.oninput=renderProducts;
+    sortBy.onchange=renderProducts;
+    clearSearch.onclick=()=>{searchInput.value='';renderProducts();};
+
+    // الطلبات
+    function listenOrders(){
+      onValue(ref(db,'orders'),snap=>{
+        orders=snap.val()||{};
+        renderOrders();
+      });
+    }
+    
+    function renderOrders(){
+      ordersTableBody.innerHTML='';
+      const filter = orderFilter.value;
+      let list = Object.entries(orders);
+      if (filter !== 'all') list = list.filter(([id,o]) => (o.status || 'pending') === filter);
+      ordersCount.textContent = list.length;
+      if (!list.length) { ordersEmpty.style.display = 'block'; return; }
+      ordersEmpty.style.display = 'none';
+
+      list.forEach(([id,o]) => {
+        const total = Object.values(o.items || {}).reduce((s,it) => s + it.price * it.quantity, 0);
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${o.userEmail || '—'}</td>
+          <td>${total} ريال</td>
+          <td>${o.payment || 'غير محدد'}</td>
+          <td><span class="status s-${o.status || 'pending'}">${o.status || 'pending'}</span></td>
+          <td>${o.date ? new Date(o.date).toLocaleString() : '—'}</td>
+          <td>
+            ${Object.values(o.items || {}).map(it =>
+              `${it.name} × ${it.quantity} — ${it.price} ريال`
+            ).join('<br>')}
+          </td>
+          <td>${o.address || '—'}</td>
+          <td class="actions">
+            <button class="btn warn" data-confirm="${id}">تأكيد</button>
+            <button class="btn" data-complete="${id}">إكمال</button>
+            <button class="btn danger" data-cancel="${id}">إلغاء</button>
+            <button class="btn ghost" data-delorder="${id}">حذف</button>
+          </td>`;
+        ordersTableBody.appendChild(row);
+      });
+
+      // إعادة ربط الأزرار بالأحداث
+      ordersTableBody.querySelectorAll('[data-confirm]').forEach(b => b.onclick = () => setStatus(b.dataset.confirm,'confirmed'));
+      ordersTableBody.querySelectorAll('[data-complete]').forEach(b => b.onclick = () => setStatus(b.dataset.complete,'completed'));
+      ordersTableBody.querySelectorAll('[data-cancel]').forEach(b => b.onclick = () => setStatus(b.dataset.cancel,'cancelled'));
+      ordersTableBody.querySelectorAll('[data-delorder]').forEach(b => b.onclick = () => deleteOrder(b.dataset.delorder));
     }
 
-    // زيادة/إنقاص كمية (+1/-1) باستخدام transaction
-    async function incDec(id, delta){
-      const r = ref(db, 'products/'+id);
-      try{
-        await runTransaction(r, (cur)=>{
-          if (!cur) return cur;
-          const q = Number(cur.quantity||0) + delta;
-          if (q < 0) return; // cancel
-          return { ...cur, quantity: q };
-        });
-      }catch(e){ console.error(e); showAlert('تعذّر تحديث الكمية', true); }
-    }
-
-    // بحث/فرز
-    searchInput.addEventListener('input', render);
-    sortBy.addEventListener('change', render);
-    clearSearch.addEventListener('click', ()=>{ searchInput.value=''; render(); });
+    orderFilter.onchange=renderOrders;
 
     // تنقل وخروج
-    gotoShop.addEventListener('click', ()=> window.location.href = 'buyer.html');
-    logoutBtn.addEventListener('click', async ()=>{
-      try{ await signOut(auth); }catch{}
-      localStorage.removeItem('loggedInUser');
-      window.location.href = 'login.html';
-    });
+    gotoShop.onclick=()=>window.location.href='buyer.html';
+    logoutBtn.onclick=async()=>{await signOut(auth);localStorage.removeItem('loggedInUser');window.location.href='login.html';};
 
-    // ===== تنبيهات =====
-    let alertTimer = null;
-    function showAlert(msg, isError=false){
-      clearTimeout(alertTimer);
-      alertBox.textContent = msg;
-      alertBox.className = 'alert ' + (isError ? 'error' : 'success');
-      alertBox.style.display = 'block';
-      alertTimer = setTimeout(()=> alertBox.style.display='none', 2200);
-    }
+    function alertMsg(msg,err=false){ alertBox.textContent=msg; alertBox.className='alert '+(err?'error':'success'); alertBox.style.display='block'; setTimeout(()=>alertBox.style.display='none',2000); }
+  
+async function setStatus(id, status){
+  await update(ref(db, 'orders/' + id), { status });
+  alertMsg('تم تحديث حالة الطلب');
+}
 
-    // ===== مساعد =====
-    function escapeHtml(text){
-      if (!text) return '';
-      return String(text).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-    }
-  </script>
+async function deleteOrder(id){
+  if (!confirm('هل أنت متأكد من حذف الطلب؟')) return;
+  await remove(ref(db, 'orders/' + id));
+  alertMsg('تم حذف الطلب');
+}
+
+</script>
 </body>
 </html>
+
