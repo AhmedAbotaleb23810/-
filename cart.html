@@ -25,9 +25,10 @@ h2{ margin:0; font-size:20px; }
 .btn{
   background: var(--accent); border:none; color:#fff; padding:10px 14px;
   border-radius:10px; cursor:pointer; font-weight:700;
-  transition: transform .12s ease, background .15s ease;
+  transition: transform .12s ease, background .15s ease, opacity .15s ease;
 }
 .btn:hover{ transform: translateY(-2px); background: var(--accent-dark); }
+.btn:disabled{ opacity:.55; cursor:not-allowed; transform:none; }
 .btn.secondary{ background: rgba(255,255,255,0.1); }
 .btn.danger{ background: var(--danger); }
 .btn.ghost{ background: transparent; border:1px solid rgba(255,255,255,0.15); }
@@ -42,9 +43,10 @@ main{ width:100%; max-width:1000px; margin:auto; padding:20px; flex:1; }
   border:1px solid rgba(255,255,255,0.06);
 }
 .muted{ color: var(--muted); font-size:14px; }
-.controls-inline{ display:flex; gap:8px; align-items:center; }
+.controls-inline{ display:flex; gap:6px; align-items:center; }
 .qty-input{
-  width:80px; padding:8px; border:none; border-radius:8px;
+  width:70px; padding:6px; border:none; border-radius:6px;
+  font-size:15px; text-align:center; background: rgba(255,255,255,0.12); color:#fff;
 }
 .total-row{
   display:flex; justify-content:space-between; align-items:center; margin-top:10px; font-weight:800;
@@ -84,6 +86,9 @@ input[type=text], input[type=number]{
 .shipping-address input{
   padding: 10px; border-radius: 8px; border: none; outline: none; font-size: 15px;
 }
+.stock-badge{ font-size:12px; color:#fff; background: rgba(255,255,255,0.15); padding:3px 8px; border-radius:999px; display:inline-block; margin-top:6px; }
+.stock-low{ background: rgba(231, 76, 60, 0.35); }
+.item-total{ font-weight:700; }
 </style>
 </head>
 <body>
@@ -102,10 +107,12 @@ input[type=text], input[type=number]{
       <div><span id="cartTotal">0.00</span> ريال</div>
     </div>
   </div>
+
   <div class="shipping-address">
     <label for="shippingAddress">📦 عنوان الشحن</label>
     <input type="text" id="shippingAddress" placeholder="أدخل عنوان الشحن الكامل" />
   </div>
+
   <div class="card payment" style="margin-top:14px;">
     <div class="section-title">💳 طريقة الدفع</div>
     <div class="methods">
@@ -136,6 +143,7 @@ input[type=text], input[type=number]{
       </div>
     </div>
   </div>
+
   <div class="sticky-bar">
     <div>عدد العناصر: <strong id="itemsCount">0</strong></div>
     <div class="controls-inline">
@@ -144,10 +152,13 @@ input[type=text], input[type=number]{
     </div>
   </div>
 </main>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getDatabase, ref, get, set, runTransaction, push } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+// === Firebase ===
 const firebaseConfig = {
   apiKey: "AIzaSyDm2WxkPe15845RS5RnTNZnRnlm1SMbSAM",
   authDomain: "appjx-d8c22.firebaseapp.com",
@@ -161,9 +172,13 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 const auth = getAuth(app);
+
+// === State ===
 let currentUser = null;
 let cart = {};
-let products = {};
+let products = {}; // يحتوي كل منتج على quantity (المخزون)
+
+// === UI refs ===
 const cartItems = document.getElementById('cartItems');
 const cartTotalEl = document.getElementById('cartTotal');
 const itemsCountEl = document.getElementById('itemsCount');
@@ -172,9 +187,13 @@ const checkoutBtn = document.getElementById('checkoutBtn');
 const refreshBtn = document.getElementById('refreshBtn');
 const cardForm = document.getElementById('cardForm');
 const methodRadios = document.querySelectorAll('input[name="paymentMethod"]');
-methodRadios.forEach(r => r.addEventListener('change', () => {
-  cardForm.style.display = (r.value === 'card' && r.checked) ? 'block' : 'none';
+
+// إظهار نموذج البطاقة عند اختيارها
+methodRadios.forEach(r => r.addEventListener('change', (e) => {
+  cardForm.style.display = (e.target.value === 'card') ? 'block' : 'none';
 }));
+
+// === Auth bootstrap ===
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
     const local = JSON.parse(localStorage.getItem('loggedInUser') || 'null');
@@ -185,8 +204,12 @@ onAuthStateChanged(auth, async (user) => {
   }
   await loadProducts();
   await loadCart();
+  // عند التحميل الأول قُم بمزامنة الكميات مع المخزون لو في تجاوز
+  await normalizeCartAgainstStock();
   renderCart();
 });
+
+// === Data ===
 async function loadProducts(){
   const snap = await get(ref(db, 'products'));
   products = snap.val() || {};
@@ -198,35 +221,123 @@ async function loadCart(){
 async function saveCart(){
   await set(ref(db, 'cart/' + currentUser.uid), cart);
 }
+
+// يرجع المخزون المتاح لمنتج معيّن
+function getStock(id){
+  const p = products[id];
+  const q = p && p.quantity != null ? Number(p.quantity) : Infinity; // لو مفيش quantity نعتبره غير محدود
+  return isNaN(q) ? Infinity : q;
+}
+
+// ضبط الكميات التي تتجاوز المخزون (مع تنبيه المستخدم مرة واحدة)
+async function normalizeCartAgainstStock(){
+  let adjusted = [];
+  for (const [id, it] of Object.entries(cart)) {
+    const stock = getStock(id);
+    if (stock === Infinity) continue;
+    if (it.qty > stock) {
+      cart[id].qty = Math.max(0, stock);
+      adjusted.push(`${it.name} → ${stock}`);
+    }
+  }
+  if (adjusted.length){
+    await saveCart();
+    alert("تم ضبط كميات بعض المنتجات وفقًا للمخزون المتاح:\n" + adjusted.join("\n"));
+  }
+}
+
+// === Rendering ===
 function renderCart(){
   cartItems.innerHTML = '';
   let total = 0; let count = 0;
+
   for (const [id, item] of Object.entries(cart)) {
-    const qty = Number(item.qty) || 0;
+    const qty = Math.max(0, Number(item.qty) || 0);
     const price = Number(item.price) || 0;
-    total += qty * price; count += qty;
+    const stock = getStock(id);
+    const perItemTotal = qty * price;
+
+    total += perItemTotal;
+    count += qty;
+
+    // حالات خاصة بالمخزون
+    const outOfStock = (stock !== Infinity && stock <= 0);
+    const atMax = (stock !== Infinity && qty >= stock);
+    const atMin = qty <= 1;
+
+    const stockText = (stock === Infinity) ? 'المتاح: غير محدد' :
+                      (stock <= 0 ? 'غير متوفر بالمخزون' : `المتاح: ${stock}`);
+
     const div = document.createElement('div');
     div.className = 'cart-item';
-    div.innerHTML = `<div><strong>${item.name}</strong><div class="muted">${price} ريال × ${qty}</div></div>
-    <div class="controls-inline">
-      <button class="btn ghost" onclick="removeItem('${id}')">حذف</button>
-    </div>`;
+    div.innerHTML = `
+      <div>
+        <strong>${item.name}</strong>
+        <div class="muted">${price.toFixed(2)} ريال × ${qty} = <span class="item-total">${perItemTotal.toFixed(2)} ريال</span></div>
+        <div class="stock-badge ${stock <= 3 ? 'stock-low' : ''}">${stockText}</div>
+      </div>
+      <div class="controls-inline">
+        <button class="btn ghost" ${atMin ? 'disabled' : ''} onclick="updateQty('${id}', ${qty - 1})">➖</button>
+        <input type="number" class="qty-input" value="${qty}" ${stock !== Infinity ? `max="${Math.max(0, stock)}"`:''} min="1" ${outOfStock ? 'disabled' : ''} oninput="updateQty('${id}', this.value)">
+        <button class="btn ghost" ${atMax || outOfStock ? 'disabled' : ''} onclick="updateQty('${id}', ${qty + 1})">➕</button>
+        <button class="btn danger" onclick="removeItem('${id}')">🗑 حذف</button>
+      </div>`;
     cartItems.appendChild(div);
   }
-  if (!Object.keys(cart).length) cartItems.innerHTML = '<div class="empty">السلة فارغة</div>';
+
+  if (!Object.keys(cart).length) {
+    cartItems.innerHTML = '<div class="empty">السلة فارغة</div>';
+  }
+
   cartTotalEl.textContent = total.toFixed(2);
   itemsCountEl.textContent = count;
 }
+
+// === Actions (global for inline handlers) ===
+window.updateQty = async function(id, newQty){
+  newQty = parseInt(newQty);
+  if (isNaN(newQty)) return;
+
+  // حد أدنى 1
+  if (newQty < 1) newQty = 1;
+
+  // حد أقصى = المخزون
+  const stock = getStock(id);
+  if (stock !== Infinity && newQty > stock) {
+    newQty = stock;
+    alert('هذه الكمية تتجاوز المخزون المتاح. تم ضبطها إلى ' + stock);
+  }
+
+  // لو المنتج غير موجود بالمخزون نهائيًا
+  if (stock !== Infinity && stock <= 0) {
+    alert('هذا المنتج غير متوفر بالمخزون حاليًا. يرجى إزالته من السلة.');
+    renderCart();
+    return;
+  }
+
+  if (!cart[id]) return; // حماية
+  cart[id].qty = newQty;
+  await saveCart();
+  renderCart();
+}
+
 window.removeItem = async function(id){
   delete cart[id];
   await saveCart();
   renderCart();
 }
+
+// === Bulk actions ===
 clearBtn.onclick = async () => { cart = {}; await saveCart(); renderCart(); };
+
 checkoutBtn.onclick = async () => {
   if (!Object.keys(cart).length) return alert('السلة فارغة');
+
+  // تحقق العنوان
   const address = document.getElementById('shippingAddress').value.trim();
   if (!address) return alert('يرجى إدخال عنوان الشحن');
+
+  // تحقق طريقة الدفع
   const method = document.querySelector('input[name="paymentMethod"]:checked').value;
   if (method === 'card') {
     const name = document.getElementById('cardName').value.trim();
@@ -235,6 +346,27 @@ checkoutBtn.onclick = async () => {
     const cvv = document.getElementById('cvv').value.trim();
     if (!name || !number || !expiry || !cvv) return alert('يرجى إدخال جميع بيانات البطاقة');
   }
+
+  // تحديث المنتجات من قاعدة البيانات ثم تحقق من المخزون لحظيًا
+  await loadProducts();
+  let issues = [];
+  for (const [id, it] of Object.entries(cart)) {
+    const stock = getStock(id);
+    if (stock === Infinity) continue;
+    if (stock <= 0) issues.push(`${it.name}: غير متوفر`);
+    else if (it.qty > stock) {
+      cart[id].qty = stock;
+      issues.push(`${it.name}: تم تقليل الكمية إلى ${stock}`);
+    }
+  }
+  if (issues.length){
+    await saveCart();
+    renderCart();
+    alert('تم تعديل السلة لتوافق المخزون قبل إتمام الشراء:\n' + issues.join('\n'));
+    return; // خلي المستخدم يراجع التعديلات
+  }
+
+  // إنشاء الطلب
   const orderData = {
     userEmail: currentUser.email || 'غير معروف',
     address,
@@ -246,16 +378,24 @@ checkoutBtn.onclick = async () => {
     ]))
   };
   await push(ref(db, 'orders'), orderData);
+
+  // خصم المخزون (نفترض التحقق السابق كافي)
   for (const [id, it] of Object.entries(cart)) {
     await runTransaction(ref(db, 'products/' + id), current => {
-      if (current) current.quantity = (current.quantity || 0) - it.qty;
+      if (!current) return current;
+      const available = Number(current.quantity) || 0;
+      const qty = Number(it.qty) || 0;
+      current.quantity = Math.max(0, available - qty);
       return current;
     });
   }
+
   cart = {}; await saveCart(); renderCart();
   alert('تم إتمام الشراء بنجاح');
 };
-refreshBtn.onclick = async () => { await loadProducts(); await loadCart(); renderCart(); };
+
+refreshBtn.onclick = async () => { await loadProducts(); await loadCart(); await normalizeCartAgainstStock(); renderCart(); };
+
 </script>
 </body>
 </html>
