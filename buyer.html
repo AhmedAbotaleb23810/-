@@ -1,378 +1,345 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-  <meta charset="UTF-8" />
-  <title>المشتري — المتجر والسلة</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <style>
-    * { box-sizing: border-box; }
-    :root{
-      --bg1: #0a1a2f; --bg2: #122b4a; --card-bg: rgba(255,255,255,0.04);
-      --muted: #cbd8e3; --accent: #4da8da; --accent-dark: #27517d;
-      --success: #27ae60; --danger: #e74c3c; --warning: #f39c12;
-    }
-    body{
-      margin:0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: linear-gradient(to right, var(--bg1), var(--bg2));
-      color:#fff; min-height:100vh; display:flex; flex-direction:column;
-    }
-    header{
-      padding:16px 20px; display:flex; align-items:center; justify-content:space-between; gap:12px;
-      background: rgba(0,0,0,0.12); backdrop-filter: blur(4px); box-shadow: 0 4px 16px rgba(0,0,0,0.35);
-      position:sticky; top:0; z-index:10;
-    }
-    header h1{ margin:0; font-size:20px; display:flex; align-items:center; gap:10px; }
-    .user-controls{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
-    .user-name{ font-weight:700; color:#fff; background:rgba(255,255,255,0.06); padding:6px 10px; border-radius:8px; }
-    .btn{
-      background: var(--accent); color:#fff; border:none; padding:10px 14px; border-radius:10px; cursor:pointer;
-      font-weight:700; transition: transform .12s ease, background .15s ease;
-    }
-    .btn:hover{ transform: translateY(-2px); background: var(--accent-dark); }
-    .btn.secondary{ background: rgba(255,255,255,0.06); color: var(--muted); border:1px solid rgba(255,255,255,0.05); }
-    .btn.danger{ background: var(--danger); }
-    .btn.warn{ background: var(--warning); color:#1e1e1e; }
-    main{ max-width:1100px; width:100%; margin:26px auto; padding:0 16px 60px; }
-    .controls-row{ display:flex; gap:12px; align-items:center; justify-content:space-between; flex-wrap:wrap; margin-bottom:18px; }
-    .search{ display:flex; gap:8px; align-items:center; flex:1; min-width:240px; }
-    .search input{ flex:1; padding:12px 14px; border-radius:12px; border:none; background: rgba(255,255,255,0.06); color:#fff; outline:none; font-size:15px; }
-    .stats{ display:flex; gap:12px; align-items:center; color:var(--muted); font-weight:700; }
-    .grid{ display:grid; grid-template-columns: repeat(3, 1fr); gap:18px; }
-    @media (max-width: 980px){ .grid{ grid-template-columns: repeat(2, 1fr);} }
-    @media (max-width: 640px){ .grid{ grid-template-columns: 1fr;} }
-    .card{
-      background: var(--card-bg); border-radius:12px; padding:16px; min-height:140px;
-      display:flex; flex-direction:column; justify-content:space-between;
-      border:1px solid rgba(255,255,255,0.05); box-shadow: 0 6px 18px rgba(0,0,0,0.35);
-      transition: transform .12s ease, box-shadow .12s ease;
-    }
-    .card:hover{ transform: translateY(-6px); box-shadow: 0 10px 28px rgba(0,0,0,0.45); }
-    .card .title{ font-size:17px; font-weight:800; color:#fff; }
-    .card .meta{ color:var(--muted); margin-top:8px; font-size:14px; min-height:36px; }
-    .card-footer{ display:flex; justify-content:space-between; align-items:center; gap:12px; margin-top:14px; }
-    .badge{ background: rgba(255,255,255,0.06); padding:6px 10px; border-radius:8px; font-weight:700; }
-    .qty{ color: var(--muted); font-weight:700; }
-    .alert{
-      position: fixed; left:50%; transform: translateX(-50%); top:16px;
-      background: rgba(0,0,0,0.65); color:#fff; padding:10px 16px; border-radius:10px;
-      display:none; z-index:1200; box-shadow: 0 6px 18px rgba(0,0,0,0.5);
-    }
-    .alert.success{ background: linear-gradient(90deg, rgba(39,174,96,0.95), rgba(30,132,73,0.95)); }
-    .alert.error{ background: linear-gradient(90deg, rgba(231,76,60,0.95), rgba(192,57,43,0.95)); }
-    .modal{ position: fixed; inset:0; display:none; justify-content:center; align-items:center; background: rgba(0,0,0,0.6); z-index:1500; padding:20px; }
-    .modal-content{
-      width:100%; max-width:780px; background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.03));
-      border-radius:12px; padding:18px; color:#fff; box-shadow: 0 10px 40px rgba(0,0,0,0.6);
-      max-height:80vh; overflow:auto; border: 1px solid rgba(255,255,255,0.05);
-    }
-    .modal-content h2{ margin:0 0 12px 0; color: var(--accent); }
-    .list{ list-style:none; padding:0; margin:0; color:var(--muted); }
-    .list li{ padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.06); display:flex; align-items:center; justify-content:space-between; gap:8px; }
-    .controls-inline{ display:flex; align-items:center; gap:6px; }
-    .empty{ text-align:center; color:var(--muted); padding:40px 12px; background: rgba(255,255,255,0.03); border-radius:12px; }
-    .muted{ color: var(--muted); }
-  </style>
+<meta charset="UTF-8" />
+<title>المشتري — المتجر والسلة</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<style>
+* { box-sizing: border-box; }
+:root{
+  --bg1: #0a1a2f; --bg2: #122b4a; --card-bg: rgba(255,255,255,0.04);
+  --muted: #cbd8e3; --accent: #4da8da; --accent-dark: #27517d;
+  --success: #27ae60; --danger: #e74c3c; --warning: #f39c12;
+  --btn-gradient: linear-gradient(90deg,#4da8da,#27517d);
+  --btn-gradient-hover: linear-gradient(90deg,#27517d,#4da8da);
+}
+body{
+  margin:0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: linear-gradient(to right, var(--bg1), var(--bg2));
+  color:#fff; min-height:100vh; display:flex; flex-direction:column;
+}
+header{
+  padding:16px 20px; display:flex; align-items:center; justify-content:space-between; gap:12px;
+  background: rgba(0,0,0,0.12); backdrop-filter: blur(4px); box-shadow: 0 4px 16px rgba(0,0,0,0.35);
+  position:sticky; top:0; z-index:10;
+}
+header h1{ margin:0; font-size:20px; display:flex; align-items:center; gap:10px; }
+.user-controls{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+.user-name{ font-weight:700; color:#fff; background:rgba(255,255,255,0.06); padding:6px 10px; border-radius:8px; }
+.btn{
+  background: var(--btn-gradient); color:#fff; border:none; padding:10px 14px; border-radius:10px; cursor:pointer;
+  font-weight:700; transition: all .2s ease;
+}
+.btn:hover{ transform: translateY(-3px) scale(1.05); background: var(--btn-gradient-hover); }
+.btn.secondary{ background: rgba(255,255,255,0.06); color: var(--muted); border:1px solid rgba(255,255,255,0.05); }
+.btn.danger{ background: var(--danger); }
+.btn.warn{ background: var(--warning); color:#1e1e1e; }
+
+main{
+  flex:1; /* يملأ المساحة بين الهيدر والفوتر */
+  display:flex;
+  flex-direction: column;
+  max-width:1100px;
+  width:100%;
+  margin:26px auto;
+  padding:0 16px 60px;
+}
+
+.controls-row{ display:flex; gap:12px; align-items:center; justify-content:space-between; flex-wrap:wrap; margin-bottom:18px; }
+.search{ display:flex; gap:8px; align-items:center; flex:1; min-width:240px; }
+.search input{ flex:1; padding:12px 14px; border-radius:12px; border:none; background: rgba(255,255,255,0.06); color:#fff; outline:none; font-size:15px; }
+.stats{ display:flex; gap:12px; flex-wrap:wrap; }
+.stat-card{
+  background: rgba(255,255,255,0.06); padding:12px 18px; border-radius:12px;
+  display:flex; align-items:center; gap:8px; font-weight:700; transition: transform .15s ease, background .15s ease;
+}
+.stat-card:hover{ transform: translateY(-3px); background: rgba(255,255,255,0.1); }
+.grid{ display:grid; grid-template-columns: repeat(3, 1fr); gap:18px; flex:1; }
+@media (max-width: 980px){ .grid{ grid-template-columns: repeat(2, 1fr);} }
+@media (max-width: 640px){ .grid{ grid-template-columns: 1fr;} }
+.card{
+  background: var(--card-bg); border-radius:12px; padding:16px; min-height:160px;
+  display:flex; flex-direction:column; justify-content:space-between;
+  border:1px solid rgba(255,255,255,0.05); box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+  transition: transform .15s ease, box-shadow .15s ease, background .15s ease;
+}
+.card:hover{ transform: translateY(-6px); box-shadow: 0 10px 28px rgba(0,0,0,0.45); background: rgba(255,255,255,0.08); }
+.card .title{ font-size:17px; font-weight:800; color:#fff; margin-bottom:6px; }
+.card .meta{ color:var(--muted); margin-top:4px; font-size:14px; min-height:36px; }
+.card-footer{ display:flex; justify-content:space-between; align-items:center; gap:12px; margin-top:14px; flex-wrap:wrap; }
+.badge{ background: rgba(255,255,255,0.06); padding:6px 10px; border-radius:8px; font-weight:700; }
+.qty{ color: var(--muted); font-weight:700; }
+
+.empty{
+  text-align:center;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:flex-end; /* أسفل العنصر الحاوي */
+  padding:40px 12px;
+  background: rgba(255,255,255,0.03);
+  border-radius:12px;
+  font-size:18px;
+  min-height:150px;
+  margin-top:auto; /* يضمن أنها تبقى أسفل المحتوى */
+}
+
+.alert{
+  position: fixed; left:50%; transform: translateX(-50%); top:16px;
+  background: rgba(0,0,0,0.65); color:#fff; padding:10px 16px; border-radius:10px;
+  display:none; z-index:1200; box-shadow: 0 6px 18px rgba(0,0,0,0.5);
+}
+.alert.success{ background: linear-gradient(90deg, rgba(39,174,96,0.95), rgba(30,132,73,0.95)); }
+.alert.error{ background: linear-gradient(90deg, rgba(231,76,60,0.95), rgba(192,57,43,0.95)); }
+
+.modal{ position: fixed; inset:0; display:none; justify-content:center; align-items:center; background: rgba(0,0,0,0.6); z-index:1500; padding:20px; }
+.modal-content{
+  width:100%; max-width:780px; background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.03));
+  border-radius:12px; padding:18px; color:#fff; box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+  max-height:80vh; overflow:auto; border: 1px solid rgba(255,255,255,0.05);
+}
+.modal-content h2{ margin:0 0 12px 0; color: var(--accent); }
+.list{ list-style:none; padding:0; margin:0; color:var(--muted); }
+.list li{ padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.06); display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.controls-inline{ display:flex; align-items:center; gap:6px; }
+
+footer{
+  text-align:center; padding:20px; background: rgba(0,0,0,0.12); color:#fff; display:flex; flex-direction:column; align-items:center; gap:6px;
+}
+footer a{ color:#4da8da; text-decoration:none; transition: color .2s; }
+footer a:hover{ color:#27517d; }
+</style>
 </head>
 <body>
-  <div class="alert" id="alertBox"></div>
+<div class="alert" id="alertBox"></div>
 
-  <header>
-    <h1>🛍️ المتجر</h1>
-    <div class="user-controls">
-      <div class="user-name" id="displayName">...</div>
-      <!-- تعديل: فتح cart.html بدلاً من المودال -->
-      <button class="btn secondary" id="showCartBtn" onclick="window.location.href='cart.html'">🛒 السلة (<span id="cartCount">0</span>)</button>
-      <button class="btn secondary" id="showPurchBtn">🧾 مشترياتي</button>
-      <button class="btn" id="logoutBtn">🚪 خروج</button>
+<header>
+  <h1>🛍️ المتجر</h1>
+  <div class="user-controls">
+    <div class="user-name" id="displayName">...</div>
+    <button class="btn secondary" id="showCartBtn" onclick="window.location.href='cart.html'">🛒 السلة (<span id="cartCount">0</span>)</button>
+    <button class="btn secondary" id="showPurchBtn">🧾 مشترياتي</button>
+    <button class="btn" id="logoutBtn">🚪 خروج</button>
+  </div>
+</header>
+
+<main>
+  <div class="controls-row">
+    <div class="search">
+      <input id="searchInput" placeholder="🔍 ابحث عن منتج..." />
+      <button class="btn secondary" id="clearSearch">مسح</button>
     </div>
-  </header>
-
-  <main>
-    <div class="controls-row">
-      <div class="search">
-        <input id="searchInput" placeholder="🔍 ابحث عن منتج..." />
-        <button class="btn secondary" id="clearSearch">مسح</button>
-      </div>
-      <div class="stats" id="statsBox"></div>
-    </div>
-
-    <div id="grid" class="grid"></div>
-    <div id="emptyState" class="empty" style="display:none;">لا توجد منتجات حالياً.</div>
-  </main>
-
-  <!-- حُذف مودال السلة نهائياً -->
-
-  <!-- Modal: المشتريات -->
-  <div id="purchModal" class="modal" aria-hidden="true">
-    <div class="modal-content">
-      <h2>🧾 سجل المشتريات</h2>
-      <ul id="purchaseList" class="list"></ul>
-      <button class="btn secondary" id="closePurchBtn">إغلاق</button>
-    </div>
+    <div class="stats" id="statsBox"></div>
   </div>
 
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getDatabase, ref, onValue, get, set, runTransaction, push } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  <div id="grid" class="grid"></div>
+  <div id="emptyState" class="empty" style="display:none;">لا توجد منتجات حالياً.</div>
+</main>
 
-    // إعدادات Firebase (كما أرسلتها)
-    const firebaseConfig = {
-      apiKey: "AIzaSyDm2WxkPe15845RS5RnTNZnRnlm1SMbSAM",
-      authDomain: "appjx-d8c22.firebaseapp.com",
-      databaseURL: "https://appjx-d8c22-default-rtdb.firebaseio.com",
-      projectId: "appjx-d8c22",
-      storageBucket: "appjx-d8c22.firebasestorage.app",
-      messagingSenderId: "182238643819",
-      appId: "1:182238643819:web:da345308cde59a9b8ed32e",
-      measurementId: "G-MMZZ5Y7JK2"
-    };
+<!-- Modal المشتريات -->
+<div id="purchModal" class="modal" aria-hidden="true">
+  <div class="modal-content">
+    <h2>🧾 سجل المشتريات</h2>
+    <ul id="purchaseList" class="list"></ul>
+    <button class="btn secondary" id="closePurchBtn">إغلاق</button>
+  </div>
+</div>
 
-    // تهيئة
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
-    const auth = getAuth(app);
-
-    // عناصر DOM
-    const gridEl = document.getElementById('grid');
-    const searchInput = document.getElementById('searchInput');
-    const clearSearch = document.getElementById('clearSearch');
-    const emptyState = document.getElementById('emptyState');
-    const statsBox = document.getElementById('statsBox');
-    const alertBox = document.getElementById('alertBox');
-    const cartCountEl = document.getElementById('cartCount');
-
-    const purchModal = document.getElementById('purchModal');
-    const purchaseListEl = document.getElementById('purchaseList');
-    const showPurchBtn = document.getElementById('showPurchBtn');
-    const closePurchBtn = document.getElementById('closePurchBtn');
-
-    const displayNameEl = document.getElementById('displayName');
-    const logoutBtn = document.getElementById('logoutBtn');
-
-    // حالة التطبيق
-    let currentUser = null;
-    let products = {};   // {id: {name, price, quantity, desc}}
-    let cart = {};       // {id: {name, price, qty}}
-    let purchases = [];  // [{name, price, qty, time}]
-
-    // ======= مصادقة المستخدم =======
-    onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        const local = JSON.parse(localStorage.getItem('loggedInUser') || 'null');
-        if (!local) { window.location.href = 'login.html'; return; }
-        currentUser = { uid: local.uid || ('local-' + (local.email||local.username||'guest')), email: local.email || local.username || 'مستخدم', displayName: local.displayName || local.username || local.email };
-      } else {
-        currentUser = user;
-      }
-      displayNameEl.textContent = currentUser.displayName || currentUser.email || 'مستخدم';
-      listenProducts();
-      await loadCartFromDB();
-      await loadPurchasesFromDB();
-      renderCartBadge();
-    });
-
-    // ======= المنتجات =======
-    function listenProducts(){
-      const productsRef = ref(db, 'products'); // نفس مسار لوحة التحكم
-      onValue(productsRef, (snap) => {
-        products = snap.val() || {};
-        renderGrid();
-        updateStats();
-      }, () => showAlert('خطأ في الاتصال بقاعدة البيانات', true));
-    }
-
-    function renderGrid(){
-      gridEl.innerHTML = '';
-      const q = (searchInput.value || '').trim().toLowerCase();
-      const entries = Object.entries(products);
-
-      if (entries.length === 0){ emptyState.style.display = 'block'; return; }
-      else emptyState.style.display = 'none';
-
-      const filtered = entries
-        .filter(([id,p]) => p && (p.name||'').toLowerCase().includes(q))
-        .sort((a,b) => (a[1].name||'').localeCompare(b[1].name||''));
-
-      if (filtered.length === 0){ gridEl.innerHTML = '<div class="empty">لا يوجد نتائج بحث.</div>'; return; }
-
-      filtered.forEach(([id, p]) => {
-        const priceText = (typeof p.price === 'number') ? p.price.toFixed(2) : (Number(p.price||0)).toFixed(2);
-        const qty = Number(p.quantity || 0);
-        const card = document.createElement('div');
-        card.className = 'card';
-        card.innerHTML = `
-          <div>
-            <div class="title">${escapeHtml(p.name || 'منتج')}</div>
-            <div class="meta">${escapeHtml(p.desc || '')}</div>
-          </div>
-          <div class="card-footer">
-            <div>
-              <span class="badge">${priceText} ريال</span>
-              <div class="qty" style="margin-top:6px;">الكمية المتاحة: <strong>${qty}</strong></div>
-            </div>
-            <div>
-              <button class="btn" data-id="${id}" ${qty <= 0 ? 'disabled' : ''}>➕ أضف للسلة</button>
-            </div>
-          </div>
-        `;
-        gridEl.appendChild(card);
-      });
-
-      gridEl.querySelectorAll('button.btn[data-id]').forEach(btn => {
-        btn.addEventListener('click', () => addToCart(btn.getAttribute('data-id')));
-      });
-    }
-
-    function updateStats(){
-      const totalCount = Object.values(products).reduce((s,p) => s + Number(p.quantity||0), 0);
-      const prodCount = Object.keys(products).length;
-      statsBox.innerHTML = `<div>المنتجات: <strong>${prodCount}</strong></div><div>إجمالي الكمية: <strong>${totalCount}</strong></div>`;
-    }
-
-    // ======= السلة (شِعار فقط + إضافة للسلة) =======
-    function renderCartBadge(){
-      const count = Object.values(cart).reduce((sum,it)=> sum + Number(it.qty||0), 0);
-      cartCountEl.textContent = count;
-    }
-
-    async function loadCartFromDB(){
-      const uidKey = currentUser?.uid || ('local-' + (currentUser?.email || 'guest'));
-      try {
-        const snap = await get(ref(db, 'cart/' + uidKey));
-        cart = snap.val() || {};
-      } catch { cart = {}; }
-      renderCartBadge();
-    }
-
-    async function saveCartToDB(){
-      const uidKey = currentUser?.uid || ('local-' + (currentUser?.email || 'guest'));
-      await set(ref(db, 'cart/' + uidKey), cart);
-      renderCartBadge();
-    }
-
-    async function addToCart(productId){
-      const p = products[productId];
-      if (!p){ showAlert('المنتج غير موجود', true); return; }
-      const available = Number(p.quantity || 0);
-      const currentQty = Number((cart[productId]?.qty) || 0);
-      if (currentQty + 1 > available){ showAlert('الكمية المطلوبة غير متاحة', true); return; }
-      cart[productId] = { name: p.name || 'منتج', price: Number(p.price || 0), qty: currentQty + 1 };
-      await saveCartToDB();
-      showAlert('🛒 تمت إضافة المنتج إلى السلة');
-    }
-
-    // ======= المشتريات =======
-    async function loadPurchasesFromDB(){
-      const uidKey = currentUser?.uid || ('local-' + (currentUser?.email || 'guest'));
-      try {
-        const snap = await get(ref(db, 'purchases/' + uidKey));
-        const val = snap.val() || {};
-        purchases = Object.values(val).sort((a,b) => new Date(b.time) - new Date(a.time));
-      } catch { purchases = []; }
-    }
-
-    function renderPurchases(){
-      purchaseListEl.innerHTML = '';
-      if (!purchases.length){
-        purchaseListEl.innerHTML = '<li class="muted">لا توجد مشتريات حتى الآن.</li>';
-        return;
-      }
-      purchases.forEach((it, idx) => {
-        const timeText = it.time ? (new Date(it.time)).toLocaleString() : '';
-        const qty = Number(it.qty||1);
-        const total = (Number(it.price||0) * qty).toFixed(2);
-        const li = document.createElement('li');
-        li.innerHTML = `<div><strong>#${idx+1}</strong> — ${escapeHtml(it.name)} — ${Number(it.price||0).toFixed(2)} ريال × ${qty} = ${total} ريال</div><div class="muted">${timeText}</div>`;
-        purchaseListEl.appendChild(li);
-      });
-    }
-
-    // ======= أدوات عامة =======
-    function showAlert(msg, isError=false){
-      alertBox.textContent = msg;
-      alertBox.className = 'alert ' + (isError ? 'error' : 'success');
-      alertBox.style.display = 'block';
-      clearTimeout(showAlert._t);
-      showAlert._t = setTimeout(()=>{ alertBox.style.display='none'; }, 2400);
-    }
-    function escapeHtml(text){
-      if (!text) return '';
-      return String(text).replace(/[&<>\"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-    }
-
-    // ======= أحداث الواجهة =======
-    searchInput.addEventListener('input', renderGrid);
-    clearSearch.addEventListener('click', () => { searchInput.value=''; renderGrid(); });
-
-    // تمت إزالة أكواد فتح/إغلاق مودال السلة
-    showPurchBtn.addEventListener('click', async () => {
-      await loadPurchasesFromDB();
-      renderPurchases();
-      purchModal.style.display = 'flex';
-      purchModal.setAttribute('aria-hidden','false');
-    });
-    closePurchBtn.addEventListener('click', () => {
-      purchModal.style.display = 'none';
-      purchModal.setAttribute('aria-hidden','true');
-    });
-    purchModal.addEventListener('click', (e) => { if (e.target === purchModal){ closePurchBtn.click(); } });
-
-    logoutBtn.addEventListener('click', async () => {
-      try { await signOut(auth); } catch {}
-      localStorage.removeItem('loggedInUser');
-      window.location.href = 'login.html';
-    });
-
-    // إعادة مزامنة لو auth تأخرت
-    setTimeout(async () => {
-      if (!currentUser){
-        const local = JSON.parse(localStorage.getItem('loggedInUser') || 'null');
-        if (local) {
-          currentUser = { uid: local.uid || ('local-' + (local.email||local.username||'guest')), email: local.email || local.username || 'مستخدم', displayName: local.displayName || local.username || local.email };
-          displayNameEl.textContent = currentUser.displayName;
-          listenProducts();
-          await loadCartFromDB();
-          await loadPurchasesFromDB();
-        }
-      }
-    }, 1500);
-  </script>
+<footer>
+  <div>📞 <a href="tel:01002174432">01002174432</a></div>
+  <div>💬 واتس: <a href="https://wa.me/201002174432" target="_blank">01002174432</a></div>
+  <div>✉️ البريد الإلكتروني: <a href="mailto:swd63431@gmail.com">swd63431@gmail.com</a></div>
+  <div>© جميع الحقوق محفوظة 2025</div>
+</footer>
 
 <script type="module">
-import { push, ref, set } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, onValue, get, set } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
-const auth = getAuth();
+const firebaseConfig = {
+  apiKey: "AIzaSyDm2WxkPe15845RS5RnTNZnRnlm1SMbSAM",
+  authDomain: "appjx-d8c22.firebaseapp.com",
+  databaseURL: "https://appjx-d8c22-default-rtdb.firebaseio.com",
+  projectId: "appjx-d8c22",
+  storageBucket: "appjx-d8c22.firebasestorage.app",
+  messagingSenderId: "182238643819",
+  appId: "1:182238643819:web:da345308cde59a9b8ed32e",
+  measurementId: "G-MMZZ5Y7JK2"
+};
 
-// ربط زر إتمام الشراء
-const checkoutBtn = document.getElementById('checkoutBtn'); // تأكد أن زر الشراء له هذا الـ id
-checkoutBtn?.addEventListener('click', async () => {
-  if (!cart || Object.keys(cart).length === 0) {
-    alert("🛒 السلة فارغة");
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+const auth = getAuth(app);
+
+const gridEl = document.getElementById('grid');
+const searchInput = document.getElementById('searchInput');
+const clearSearch = document.getElementById('clearSearch');
+const emptyState = document.getElementById('emptyState');
+const statsBox = document.getElementById('statsBox');
+const alertBox = document.getElementById('alertBox');
+const cartCountEl = document.getElementById('cartCount');
+
+const purchModal = document.getElementById('purchModal');
+const purchaseListEl = document.getElementById('purchaseList');
+const showPurchBtn = document.getElementById('showPurchBtn');
+const closePurchBtn = document.getElementById('closePurchBtn');
+
+const displayNameEl = document.getElementById('displayName');
+const logoutBtn = document.getElementById('logoutBtn');
+
+let currentUser = null;
+let products = {};
+let cart = {};
+let purchases = [];
+
+onAuthStateChanged(auth, async (user) => {
+  if (!user) {
+    const local = JSON.parse(localStorage.getItem('loggedInUser') || 'null');
+    if (!local) { window.location.href = 'login.html'; return; }
+    currentUser = { uid: local.uid || ('local-' + (local.email||local.username||'guest')), email: local.email || local.username || 'مستخدم', displayName: local.displayName || local.username || local.email };
+  } else {
+    currentUser = user;
+  }
+  displayNameEl.textContent = currentUser.displayName || currentUser.email || 'مستخدم';
+  listenProducts();
+  await loadCartFromDB();
+  await loadPurchasesFromDB();
+  renderCartBadge();
+});
+
+function listenProducts(){
+  const productsRef = ref(db, 'products');
+  onValue(productsRef, (snap) => {
+    products = snap.val() || {};
+    renderGrid();
+    updateStats();
+  }, () => showAlert('خطأ في الاتصال بقاعدة البيانات', true));
+}
+
+function renderGrid(){
+  gridEl.innerHTML = '';
+  const q = (searchInput.value || '').trim().toLowerCase();
+  const entries = Object.entries(products);
+
+  if (entries.length === 0){ emptyState.style.display = 'flex'; return; }
+  else emptyState.style.display = 'none';
+
+  const filtered = entries
+    .filter(([id,p]) => p && (p.name||'').toLowerCase().includes(q))
+    .sort((a,b) => (a[1].name||'').localeCompare(b[1].name||''));
+
+  if (filtered.length === 0){ gridEl.innerHTML = '<div class="empty">لا يوجد نتائج بحث.</div>'; return; }
+
+  filtered.forEach(([id, p]) => {
+    const priceText = (typeof p.price === 'number') ? p.price.toFixed(2) : (Number(p.price||0)).toFixed(2);
+    const qty = Number(p.quantity || 0);
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `
+      <div>
+        <div class="title">${escapeHtml(p.name || 'منتج')}</div>
+        <div class="meta">${escapeHtml(p.desc || '')}</div>
+      </div>
+      <div class="card-footer">
+        <div>
+          <span class="badge">${priceText} ريال</span>
+          <div class="qty" style="margin-top:6px;">الكمية المتاحة: <strong>${qty}</strong></div>
+        </div>
+        <div style="display:flex; gap:6px;">
+          <button class="btn" data-id="${id}" ${qty <= 0 ? 'disabled' : ''}>➕ أضف للسلة</button>
+        </div>
+      </div>
+    `;
+    gridEl.appendChild(card);
+  });
+
+  gridEl.querySelectorAll('button.btn[data-id]').forEach(btn => {
+    btn.addEventListener('click', () => addToCart(btn.getAttribute('data-id')));
+  });
+}
+
+function updateStats(){
+  statsBox.innerHTML = '';
+  const totalCount = Object.values(products).reduce((s,p) => s + Number(p.quantity||0), 0);
+  const prodCount = Object.keys(products).length;
+  const cards = [
+    {label:'المنتجات', value:prodCount},
+    {label:'إجمالي الكمية', value:totalCount}
+  ];
+  cards.forEach(c => {
+    const div = document.createElement('div');
+    div.className = 'stat-card';
+    div.textContent = `${c.label}: ${c.value}`;
+    statsBox.appendChild(div);
+  });
+}
+
+function renderCartBadge(){
+  const count = Object.values(cart).reduce((sum,it)=> sum + Number(it.qty||0), 0);
+  cartCountEl.textContent = count;
+}
+
+async function loadCartFromDB(){
+  const uidKey = currentUser?.uid || ('local-' + (currentUser?.email || 'guest'));
+  try { const snap = await get(ref(db, 'cart/' + uidKey)); cart = snap.val() || {}; } catch { cart = {}; }
+  renderCartBadge();
+}
+
+async function saveCartToDB(){
+  const uidKey = currentUser?.uid || ('local-' + (currentUser?.email || 'guest'));
+  await set(ref(db, 'cart/' + uidKey), cart);
+  renderCartBadge();
+}
+
+async function addToCart(productId){
+  const p = products[productId];
+  if (!p){ showAlert('المنتج غير موجود', true); return; }
+  const available = Number(p.quantity || 0);
+  const currentQty = Number((cart[productId]?.qty) || 0);
+  if (currentQty + 1 > available){ showAlert('الكمية المطلوبة غير متاحة', true); return; }
+  cart[productId] = { name: p.name || 'منتج', price: Number(p.price || 0), qty: currentQty + 1 };
+  await saveCartToDB();
+  showAlert('🛒 تمت إضافة المنتج إلى السلة');
+}
+
+async function loadPurchasesFromDB(){
+  const uidKey = currentUser?.uid || ('local-' + (currentUser?.email || 'guest'));
+  try { const snap = await get(ref(db, 'purchases/' + uidKey)); const val = snap.val() || {}; purchases = Object.values(val).sort((a,b) => new Date(b.time) - new Date(a.time)); } catch { purchases = []; }
+}
+
+function renderPurchases(){
+  purchaseListEl.innerHTML = '';
+  if (!purchases.length){
+    purchaseListEl.innerHTML = '<li class="muted">لا توجد مشتريات حتى الآن.</li>';
     return;
   }
+  purchases.forEach(p => {
+    const li = document.createElement('li');
+    li.innerHTML = `<span>${escapeHtml(p.name || 'منتج')}</span> <strong>${Number(p.qty||0)}</strong> × ${Number(p.price||0).toFixed(2)} ريال`;
+    purchaseListEl.appendChild(li);
+  });
+}
 
-  const currentUser = auth.currentUser;
-  const uidKey = currentUser?.uid || ('guest-' + Date.now());
+showPurchBtn.addEventListener('click', () => { renderPurchases(); purchModal.style.display = 'flex'; });
+closePurchBtn.addEventListener('click', () => { purchModal.style.display = 'none'; });
 
-  const orderRef = push(ref(db, 'orders'));
-  const orderData = {
-    userId: uidKey,
-    userEmail: currentUser?.email || "زائر",
-    items: cart,
-    payment: "كاش",
-    address: "",
-    status: "pending",
-    date: Date.now()
-  };
-  await set(orderRef, orderData);
-  cart = {};
-  await saveCartToDB();
-  alert("✅ تم إرسال الطلب بنجاح");
-});
+logoutBtn.addEventListener('click', async () => { try { await signOut(auth); localStorage.removeItem('loggedInUser'); window.location.href='login.html'; } catch(e){ showAlert('خطأ عند تسجيل الخروج', true); } });
+
+clearSearch.addEventListener('click', () => { searchInput.value=''; renderGrid(); });
+searchInput.addEventListener('input', () => { renderGrid(); });
+
+function showAlert(msg, isError=false){
+  alertBox.textContent = msg;
+  alertBox.className = 'alert ' + (isError?'error':'success');
+  alertBox.style.display = 'block';
+  setTimeout(()=>{ alertBox.style.display='none'; }, 3000);
+}
+
+function escapeHtml(text){
+  const div = document.createElement('div'); div.textContent = text; return div.innerHTML;
+}
 </script>
-
 </body>
 </html>
 
